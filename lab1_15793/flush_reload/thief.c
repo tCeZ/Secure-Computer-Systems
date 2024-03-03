@@ -20,6 +20,13 @@
 // you can traverse the buffer and use the utility functions
 // to flush lines and perform the reload step.
 int flush_reload(int size, uint8_t *buf) {
+    for (int i = 0; i < size; i += 64) { // Assuming cache line size is 64 bytes
+        clflush(&buf[i]);
+    }
+
+    for (int i = 0; i < size; i += 64) {
+        measure_line_access_time(&buf[i]);
+    }
     
 }
 

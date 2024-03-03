@@ -11,6 +11,27 @@
 #include "params.h"
 #include <sys/mman.h>
 
+// struct for traversal of eviction linked list
+typedef struct node {
+    struct node* next;
+    uint64_t timestamp;
+} node_t;
+
+// Initialize the eviction linked list
+node_t* init_eviction_list(char* buf, int buf_size, int stride) {
+    node_t* head = (node_t*)buf;
+    node_t* current = head;
+    char* ptr = buf;
+    int num_nodes = buf_size / stride;
+    for (int i = 1; i < num_nodes; i++) {
+        ptr += stride;
+        current->next = (node_t*)ptr;
+        current = current->next;
+    }
+    current->next = head; // Make it circular
+    return head;
+}
+
 // you will need to generate an eviction linked list structure with next,
 // previous pointers and time measurements
 // then you can use the shuffle function to randomize the access pattern 
@@ -21,6 +42,45 @@
 // the time measurements
 bool prime_probe_l2_set(int set, char *buf) {
     bool found = false;
+
+    //system information
+    // const buf_size = <fill in>
+    // const stride = <fill in>
+
+    // Initialize the eviction linked list
+    node_t* head = init_eviction_list(buf, buf_size, stride);
+    node_t* current = head;
+
+    // Prime phase: Access each node to load it into cache
+    do {
+        current = current->next;
+    } while (current != head);
+
+    // Insert delay here if needed
+
+    // Probe phase: Measure access times
+    uint64_t start, end;
+    do {
+        start = rdtsc();
+        current = current->next; // Access
+        end = rdtsc();
+        current->timestamp = end - start;
+        // Analyze timing here to determine if data was evicted
+        // For simplicity, we're just collecting timestamps
+    } while (current != head);
+
+    // Example analysis (very simplistic, just for demonstration)
+    uint64_t threshold = 100; // Threshold for determining a cache miss, needs calibration
+    current = head;
+    do {
+        if (current->timestamp > threshold) {
+            found = true;
+            break;
+        }
+        current = current->next;
+    } while (current != head);
+
+    return found;
     return found;
 }
 
